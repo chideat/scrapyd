@@ -69,6 +69,48 @@ class Cancel(WsResource):
                 prevstate = "running"
         return {"node_name": self.root.nodename, "status": "ok", "prevstate": prevstate}
 
+class Job(WsResource):
+
+    def render_GET(self, txrequest):
+        args = dict((k, v[0]) for k, v in txrequest.args.items())
+        project = args['project']
+        jobid = args['job']
+
+        spider = None
+        for s in self.root.launcher.processes.values():
+            if s.project != project:
+                continue
+            if s.job == jobid:
+                spider = {
+                    "id": jobid,
+                    "spider": s.spider,
+                    "status": "running",
+                    "start_time": s.start_time.isoformat(' ')
+                }
+                break
+        if not spider:
+            queue = self.root.poller.queues[project]
+            for s in queue:
+                if x["_job"] == jobid:
+                    spider = {"id": jobid, "spider": x["name"], "status": "pending"}
+        if not spider:
+            for s in self.root.finished.launcher.finished:
+                if s.project != project:
+                    continue
+                if s.job == jobid:
+                    spider = {
+                        "id": jobid,
+                        "spider": s.spider,
+                        "start_time": s.start_time.isoformat(' '),
+                        "end_time": s.end_time.isoformat(' '),
+                        "status": "finished"
+                    }
+                    break
+        if spider:
+            return {"node_name": self.root.nodename, "status":"ok", "data": spider}
+        else:
+            return {"node_name": self.root.nodename, "status":"error", "message": "not found"}
+
 class AddVersion(WsResource):
 
     def render_POST(self, txrequest):
